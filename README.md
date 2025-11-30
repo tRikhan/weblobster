@@ -4,7 +4,7 @@ Single-page app akuarium 2D pixel-art responsif dengan lobster PNG, sensor/aktua
 
 <img src="assets/Screenshot.png" alt="WebLobster screenshot" style="max-width:100%;height:auto;" />
 
-*Screenshot: assets/Screenshot.png*
+*bg source : https://www.artstation.com/artwork/ZaYobx*
 
 ## Fitur Utama
 - Aquarium 2D pixel-art simulasi ternak lobster IoT.
