@@ -2,6 +2,10 @@
 
 Single-page app akuarium 2D pixel-art responsif dengan lobster PNG, sensor/aktuator data-driven, dashboard metrik (bars), dan efek bubble aerator yang natural.
 
+<img src="assets/Screenshot.png" alt="WebLobster screenshot" style="max-width:100%;height:auto;" />
+
+*Screenshot: assets/Screenshot.png*
+
 ## Fitur Utama
 - Aquarium 2D pixel-art simulasi ternak lobster IoT.
 - 7 lobster PNG: wander acak, flip arah, dan tetap dalam batas.
