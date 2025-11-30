@@ -153,10 +153,15 @@
   }
 
   function loop(ts) {
-    const dt = Math.min(100, ts - lastTS);
+    let dt = ts - lastTS;
+    // Cap dt to avoid large jumps after tab inactivity
+    dt = Math.max(0, Math.min(32, dt));
     lastTS = ts;
-    update(dt);
-    render();
+    // Pause updates when tab is hidden to avoid particle bursts
+    if (!document.hidden) {
+      update(dt);
+      render();
+    }
     requestAnimationFrame(loop);
   }
   requestAnimationFrame(loop);
@@ -415,7 +420,8 @@
   }
 
   function startDashboardLoop() {
-    function nextForType(t, state) {
+    let lastDashTs = Date.now();
+    function nextForType(t, state, elapsedMs) {
       let val, pct, numeric;
       switch (t) {
         case 'temp': {
@@ -467,10 +473,13 @@
           break;
         }
         case 'feeder': {
-          // Every dashboard tick (4s), reduce remaining by 10 minutes until 0, then reset to 60
-          feederRemainingMins = Math.max(0, feederRemainingMins - 10);
-          if (feederRemainingMins === 0) {
-            // simulate feeding occurred; reset schedule
+          // Reduce based on real elapsed time to avoid burst after tab inactivity
+          const ticksMissed = Math.floor((elapsedMs || 0) / 4000);
+          const minsDelta = ticksMissed > 0 ? ticksMissed * 10 : 10; // default 10 per normal tick
+          const before = feederRemainingMins;
+          feederRemainingMins = Math.max(0, feederRemainingMins - minsDelta);
+          // Emit exactly once when crossing to 0 or hitting 0
+          if (before > 0 && feederRemainingMins === 0) {
             emitFeedParticles(18);
             feederRemainingMins = 60;
           }
@@ -488,10 +497,14 @@
       }
     }
     // initial
-    dashboardState.forEach(s => nextForType(s.type, s));
-    // update every 4 seconds
+    dashboardState.forEach(s => nextForType(s.type, s, 0));
+    // update every 4 seconds, skip when tab hidden; adjust by elapsed to avoid bursts
     setInterval(() => {
-      dashboardState.forEach(s => nextForType(s.type, s));
+      const now = Date.now();
+      const elapsed = now - lastDashTs;
+      lastDashTs = now;
+      if (document.hidden) return; // skip updates while backgrounded
+      dashboardState.forEach(s => nextForType(s.type, s, elapsed));
     }, 4000);
   }
 
@@ -527,17 +540,23 @@
   const modalTitle = document.getElementById('modalTitle');
   const modalPhoto = document.getElementById('modalPhoto');
   const modalDesc = document.getElementById('modalDesc');
+  const howBtn = document.getElementById('howBtn');
 
   let lastFocusedBtn = null;
 
   function openModal(device) {
+    // cancel any Cara Kerja reveal timer to avoid overlap
+    if (typeof howTimer !== 'undefined' && howTimer) { clearTimeout(howTimer); howTimer = null; }
+    // ensure typing timer is reset before starting new typing
+    if (typingTimer) { clearTimeout(typingTimer); typingTimer = null; modalDesc.classList.remove('typing'); }
     lastFocusedBtn = document.querySelector(`.device-icon[data-id="${device.id}"]`);
     modalTitle.textContent = device.name;
     // typing effect for description
     typeText(modalDesc, device.description);
     // Lazy-load photo (set src only when opening)
     modalPhoto.src = device.photo;
-
+    // ensure default layout (with photo) for device modal
+    modalOverlay.querySelector('.modal-body').classList.remove('modal-body--text-only');
     modalOverlay.setAttribute('aria-hidden', 'false');
     // focus the modal container for Esc capture
     const modal = modalOverlay.querySelector('.modal');
@@ -557,10 +576,88 @@
   function closeModal() {
     modalOverlay.setAttribute('aria-hidden', 'true');
     modalPhoto.removeAttribute('src'); // free memory
+    // cancel any active timers
+    if (typingTimer) { clearTimeout(typingTimer); typingTimer = null; modalDesc.classList.remove('typing'); }
+    if (typeof howTimer !== 'undefined' && howTimer) { clearTimeout(howTimer); howTimer = null; }
+    // restore default modal layout for next open
+    const bodyEl = modalOverlay.querySelector('.modal-body');
+    if (bodyEl) bodyEl.classList.remove('modal-body--text-only');
     if (lastFocusedBtn) lastFocusedBtn.focus();
   }
 
   modalCloseBtn.addEventListener('click', closeModal);
+
+  // Cara Kerja popup with line-by-line reveal and centered arrows
+  function openHowItWorks() {
+    // cancel any ongoing typing to prevent overwrite
+    if (typingTimer) { clearTimeout(typingTimer); typingTimer = null; modalDesc.classList.remove('typing'); }
+    const lines = [
+      '1. Sensor mengukur kondisi air kolam',
+      'Suhu, pH, oksigen (DO), dan level air dikumpulkan secara berkala.',
+      'arrow',
+      '2. Data masuk ke gateway (ESP32 / NodeMCU)',
+      'Gateway membaca data, memeriksa batas ambang, dan menjalankan kontrol dasar.',
+      'arrow',
+      '3. Gateway mengirim data ke Broker MQTT',
+      'Data dikirim menggunakan protokol MQTT yang ringan dan efisien.',
+      'arrow',
+      '4. Cloud IoT memproses dan menyimpan data',
+      'Cloud melakukan penyimpanan, analisis tren, visualisasi grafik, dan notifikasi.',
+      'arrow',
+      '5. Dashboard menampilkan kondisi secara real-time',
+      'Operator dapat memantau kualitas air dan menerima peringatan dari perangkat apa pun.',
+      'arrow',
+      '6. Aktuator menjalankan tindakan otomatis',
+      'Aerator, pompa, dan feeder bekerja sesuai kondisi yang terdeteksi oleh sistem.'
+    ];
+
+    modalTitle.textContent = 'Cara Kerja Sistem';
+    modalPhoto.removeAttribute('src');
+    // switch to text-only layout: hide photo and use 1 column
+    modalOverlay.querySelector('.modal-body').classList.add('modal-body--text-only');
+    modalDesc.innerHTML = '';
+
+    // Build DOM nodes for each line (arrows centered)
+    const nodes = lines.map((ln) => {
+      const el = document.createElement('div');
+      if (ln === 'arrow') {
+        el.className = 'arrow';
+        el.textContent = '↓';
+      } else {
+        el.textContent = ln;
+      }
+      el.style.opacity = '0';
+      return el;
+    });
+    nodes.forEach(n => modalDesc.appendChild(n));
+
+    // Reveal animation: line-by-line fade in (simulates writing)
+    let idx = 0;
+    const reveal = () => {
+      if (idx >= nodes.length) return;
+      const n = nodes[idx];
+      n.style.transition = 'opacity 160ms ease-out';
+      n.style.opacity = '1';
+      idx++;
+      if (idx < nodes.length) { howTimer = setTimeout(reveal, 140); } else { howTimer = null; }
+    };
+
+    // Open modal and start animation
+    const modal = modalOverlay.querySelector('.modal');
+    modalOverlay.setAttribute('aria-hidden', 'false');
+    modal.focus();
+    reveal();
+
+    // Close handlers (same as device modal)
+    function onEsc(e) { if (e.key === 'Escape') closeModal(); }
+    function onClickOverlay(e) { if (e.target === modalOverlay) closeModal(); }
+    modalOverlay.addEventListener('keydown', onEsc, { once: true });
+    modalOverlay.addEventListener('click', onClickOverlay, { once: true });
+  }
+
+  if (howBtn) {
+    howBtn.addEventListener('click', openHowItWorks);
+  }
 
   // Init
   loadDevices();
@@ -686,6 +783,7 @@
 
   // Typewriter effect ----------------------------------------------------------
   let typingTimer = null;
+  let howTimer = null; // current timer for Cara Kerja reveal
   function typeText(el, text) {
     // cancel previous typing if any
     if (typingTimer) { clearTimeout(typingTimer); typingTimer = null; }
