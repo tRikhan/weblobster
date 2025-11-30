@@ -1,0 +1,22 @@
+# General
+.DS_Store
+Thumbs.db
+*.log
+
+# VS Code
+.vscode/
+
+# Node (if used later)
+node_modules/
+
+# Build outputs (if any)
+dist/
+build/
+
+# Python http.server cache
+__pycache__/
+
+# OS/Temp
+.tmp/
+*.tmp
+~$*

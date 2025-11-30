@@ -1,0 +1,66 @@
+[
+  {
+    "id": "feeder1",
+    "type": "feeder",
+    "name": "Feeder Otomatis",
+    "x": 0.82,
+    "y": -0.05,
+    "photo": "assets/photos/feeder.webp",
+    "description": "Memberi makan lobster secara terjadwal (mis. 08:00 dan 18:00) agar asupan pakan konsisten. Mengurangi stres dan mencegah overfeeding yang dapat menurunkan kualitas air."
+  },
+  {
+    "id": "pump1",
+    "type": "pump",
+    "name": "Pompa Air",
+    "x": 0.88,
+    "y": 0.92,
+    "photo": "assets/photos/pump.webp",
+    "description": "Mengatur sirkulasi air untuk menjaga distribusi oksigen dan suhu merata. Dapat digunakan untuk penambahan/pengurangan air saat pergantian air berkala, penting untuk kesehatan dan pertumbuhan lobster."
+  },
+  {
+    "id": "aerator1",
+    "type": "aerator",
+    "name": "Aerator",
+    "x": 0.78,
+    "y": 0.85,
+    "photo": "assets/photos/aerator.webp",
+    "description": "Menambah oksigen terlarut (DO) ke dalam air saat kadarnya menurun. Vital untuk pernapasan lobster, mencegah letargi dan tingkat kematian akibat kekurangan oksigen."
+  },
+
+  { 
+    "id": "temp1",
+    "type": "temp",
+    "name": "Sensor Suhu Air",
+    "x": 0.14,
+    "y": 0.40,
+    "photo": "assets/photos/temp.webp",
+    "description": "Memantau temperatur air secara kontinu agar tetap pada kisaran ideal untuk lobster. Suhu stabil membantu metabolisme, nafsu makan, dan mengurangi risiko penyakit."
+  },
+  {
+    "id": "ph1",
+    "type": "ph",
+    "name": "Sensor pH",
+    "x": 0.36,
+    "y": 0.70,
+    "photo": "assets/photos/ph.webp",
+    "description": "Mengukur tingkat keasaman (pH) untuk memastikan lingkungan tidak terlalu asam atau basa. pH stabil mencegah stres dan masalah molting/pertumbuhan."
+  },
+  {
+    "id": "do1",
+    "type": "do",
+    "name": "Sensor DO (Oksigen Terlarut)",
+    "x": 0.70,
+    "y": 0.50,
+    "photo": "assets/photos/do.webp",
+    "description": "Mengukur kadar oksigen terlarut (DO) sebagai indikator kualitas air. Jika DO rendah, sistem menyalakan aerator otomatis untuk menjaga kenyamanan dan keselamatan lobster."
+  },
+  {
+    "id": "level1",
+    "type": "level",
+    "name": "Sensor Level Air",
+    "x": 0.96,
+    "y": 0.12,
+    "photo": "assets/photos/level.webp",
+    "description": "Memantau ketinggian air untuk mendeteksi kebocoran atau penguapan berlebihan. Membantu menjaga volume ideal sehingga kondisi lingkungan tetap stabil bagi lobster."
+  }
+]

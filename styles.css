@@ -1,0 +1,269 @@
+/* Global styles */
+:root {
+  --bg: #0b1b2b;        /* deep water */
+  --water: #10324e;     /* water mid */
+  --sand: #c7a76c;      /* sand */
+  --rock: #6a6a6a;      /* rocks */
+  --plant1: #2e8b57;    /* seaweed */
+  --plant2: #3ca76a;
+  --ui: #e6edf6;        /* UI text */
+  --accent: #ff5c5c;    /* buttons/icons */
+  --tooltip-bg: #0d2236;
+  --tooltip-border: #3a6ea5;
+}
+
+html, body {
+  margin: 0;
+  padding: 0;
+  background: var(--bg);
+  color: var(--ui);
+  font-family: 'Inter', system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
+}
+
+/* Add top breathing room so the header isn't too close to the top */
+body { padding-top: 28px; }
+
+.site-header {
+  max-width: 1000px;
+  margin: 24px auto 8px;
+  padding: 0 16px;
+}
+.title {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 22px;
+  line-height: 1.3;
+  margin: 0 0 8px 0;
+  letter-spacing: 1px;
+}
+.subtitle {
+  margin: 0 0 12px 0;
+  opacity: 0.9;
+}
+
+.aquarium {
+  position: relative;
+  max-width: 1000px;
+  margin: 0 auto;
+  aspect-ratio: 16 / 9;
+  /* outline to visualize responsive area */
+  box-shadow: 0 0 0 2px rgba(255,255,255,0.06) inset;
+}
+
+/* Aquarium glass frame (left, right via pseudo; bottom via element) */
+.aquarium::before,
+.aquarium::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: clamp(8px, 1.4vw, 16px);
+  background: linear-gradient(180deg, rgba(255,255,255,0.18), rgba(255,255,255,0.04));
+  border: 1px solid rgba(255,255,255,0.12);
+  pointer-events: none;
+}
+.aquarium::before { left: 0; }
+.aquarium::after { right: 0; }
+.frame-bottom {
+  position: absolute;
+  left: 0; right: 0; bottom: 0;
+  height: clamp(10px, 1.8vw, 20px);
+  background: linear-gradient(0deg, rgba(255,255,255,0.2), rgba(255,255,255,0.05));
+  border-top: 1px solid rgba(255,255,255,0.1);
+  border-bottom: 1px solid rgba(0,0,0,0.3);
+  pointer-events: none;
+}
+
+.pixel-canvas {
+  width: 100%;
+  height: 100%;
+  display: block;
+  image-rendering: pixelated;
+}
+
+.devices-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none; /* icons enable individually */
+}
+
+.device-icon {
+  position: absolute;
+  width: clamp(48px, 7.5vw, 88px);
+  height: clamp(48px, 7.5vw, 88px);
+  image-rendering: pixelated;
+  cursor: pointer;
+  pointer-events: auto;
+  border: 0;
+  background: none;
+  /* interactive blink aura */
+  filter: drop-shadow(0 0 0px rgba(255,255,255,0.0));
+  animation: deviceBlink 1.6s infinite;
+}
+.device-icon img {
+  width: 100%;
+  height: 100%;
+  image-rendering: pixelated;
+}
+
+@keyframes deviceBlink {
+  0%, 100% { filter: drop-shadow(0 0 0px rgba(255,255,255,0.0)); }
+  50% { filter: drop-shadow(0 0 10px rgba(255,255,255,1)); }
+}
+
+/* Tooltip */
+.tooltip {
+  position: absolute;
+  transform: translate(-50%, -120%);
+  background: var(--tooltip-bg);
+  border: 1px solid var(--tooltip-border);
+  color: var(--ui);
+  padding: 4px 6px;
+  font-size: 12px;
+  border-radius: 4px;
+  white-space: nowrap;
+  pointer-events: none;
+}
+
+/* Modal */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: none; /* toggled by JS */
+  align-items: center;
+  justify-content: center;
+  padding: 24px;
+}
+.modal-overlay[aria-hidden="false"] {
+  display: flex;
+}
+.modal {
+  background: #0f2a43;
+  border: 2px solid #2a5585;
+  border-radius: 8px;
+  max-width: min(720px, 90vw);
+  width: 100%;
+  box-shadow: 0 12px 40px rgba(0,0,0,0.4);
+  position: relative;
+  opacity: 0;
+  transform: translateY(8px) scale(0.98);
+  animation: modalPop 260ms ease-out forwards;
+}
+.modal-title {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 16px;
+  margin: 16px;
+}
+.modal-body {
+  display: grid;
+  grid-template-columns: 1fr 1.2fr;
+  gap: 16px;
+  padding: 0 16px 16px 16px;
+}
+.modal-photo {
+  width: 100%;
+  height: auto;
+  border: 2px solid #23496f;
+  border-radius: 6px;
+  image-rendering: pixelated;
+}
+.modal-desc {
+  margin: 0;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+@keyframes modalPop {
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* typing effect for description */
+.typing {
+  border-right: 2px solid rgba(255,255,255,0.8);
+  animation: typingCursor 600ms steps(1) infinite;
+}
+@keyframes typingCursor {
+  0%, 49% { border-right-color: rgba(255,255,255,0.8); }
+  50%, 100% { border-right-color: transparent; }
+}
+.modal-close {
+  position: absolute;
+  top: 8px; right: 8px;
+  width: 32px; height: 32px;
+  border: 0;
+  border-radius: 6px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 20px;
+  cursor: pointer;
+}
+.modal-close:focus {
+  outline: 2px solid #fff;
+}
+
+.site-footer {
+  max-width: 1000px;
+  margin: 8px auto 24px;
+  padding: 0 16px;
+  opacity: 1;
+  font-size: 14px;
+}
+
+/* Dashboard styles */
+.dash-title {
+  font-family: 'Press Start 2P', monospace;
+  font-size: 14px;
+  margin: 16px 0 8px 0;
+}
+.dashboard-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 12px;
+}
+.card {
+  background: #0f2a43;
+  border: 2px solid #2a5585;
+  border-radius: 8px;
+  padding: 10px 12px;
+}
+.card-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+}
+.card-header .icon {
+  width: 20px; height: 20px;
+  image-rendering: pixelated;
+}
+.card-title {
+  font-weight: 600;
+}
+.metric-row {
+  display: grid;
+  grid-template-columns: 1fr auto;
+  align-items: center;
+  gap: 8px;
+  margin: 6px 0;
+}
+.metric-label { opacity: 0.85; font-size: 13px; }
+.metric-value { font-size: 13px; }
+.bar {
+  position: relative;
+  height: 10px;
+  background: rgba(255,255,255,0.08);
+  border: 1px solid rgba(255,255,255,0.18);
+  border-radius: 6px;
+  overflow: hidden;
+}
+.bar > .fill {
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 0%;
+  background: linear-gradient(90deg, #3ba6ff, #7beeff);
+  transition: width 600ms ease;
+}
+/* Sparkline removed: using bars only */
