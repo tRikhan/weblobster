@@ -1,3 +1,6 @@
+  // Aerator bubbles
+  const bubbles = [];
+  let bubbleImg = null;
 // WebLobster Aquarium — HTML/CSS/JS murni
 // Komentar singkat di area utama: movement, rendering, modal handling
 
@@ -137,6 +140,8 @@
     // Bubbles
     emitBubbles(dt);
     updateBubbles(dt);
+    // Feed particles
+    updateFeedParticles(dt);
   }
 
   // Render loop ----------------------------------------------------------------
@@ -144,6 +149,7 @@
     drawBackground();
     lobsters.forEach(drawLobster);
     drawBubbles();
+    drawFeedParticles();
   }
 
   function loop(ts) {
@@ -168,6 +174,9 @@
     }
   }
 
+  // session-only position overrides (not persisted), shared across features
+  const devicePosOverride = new Map();
+
   function renderDevices(devices) {
     devicesLayer.innerHTML = '';
     devices.forEach((d) => {
@@ -177,8 +186,10 @@
       btn.type = 'button';
       btn.setAttribute('aria-label', d.name);
       btn.dataset.id = d.id;
-      btn.style.left = `${d.x * 100}%`;
-      btn.style.top = `${d.y * 100}%`;
+      const initX = d.x * 100;
+      const initY = d.y * 100;
+      btn.style.left = `${initX}%`;
+      btn.style.top = `${initY}%`;
       btn.style.transform = 'translate(-50%, -50%)';
 
       // icon image: use provided pixel icons from assets/web/*_pixel.png
@@ -201,18 +212,97 @@
       btn.addEventListener('focus', () => (tip.hidden = false));
       btn.addEventListener('blur', () => (tip.hidden = true));
 
-      btn.addEventListener('click', () => openModal(d));
+      // Click opens modal only if no dragging occurred
+      let didDrag = false;
+      btn.addEventListener('click', (e) => {
+        if (didDrag) {
+          e.preventDefault();
+          return; // suppress modal after drag
+        }
+        openModal(d);
+      });
+
+      // Dragging (mouse) — hold left click to drag, session only
+      let dragging = false;
+      let dragStart = null; // {mx,my, xPct, yPct}
+      btn.addEventListener('mousedown', (e) => {
+        if (e.button !== 0) return; // left click only
+        e.preventDefault();
+        const rect = devicesLayer.getBoundingClientRect();
+        const current = devicePosOverride.get(d.id) || { x: d.x * 100, y: d.y * 100 };
+        dragStart = { mx: e.clientX, my: e.clientY, xPct: current.x, yPct: current.y, rect };
+        dragging = true;
+        // disable tooltip while dragging
+        tip.hidden = true;
+      });
+      window.addEventListener('mousemove', (e) => {
+        if (!dragging || !dragStart) return;
+        const dx = e.clientX - dragStart.mx;
+        const dy = e.clientY - dragStart.my;
+        // mark as dragged once movement exceeds small threshold
+        if (Math.abs(dx) > 3 || Math.abs(dy) > 3) didDrag = true;
+        const w = dragStart.rect.width;
+        const h = dragStart.rect.height;
+        let xPct = dragStart.xPct + (dx / w) * 100;
+        let yPct = dragStart.yPct + (dy / h) * 100;
+        // bounds: feeder can go outside a bit, others clamped inside
+        if (d.type === 'feeder') {
+          xPct = Math.max(-20, Math.min(120, xPct));
+          yPct = Math.max(-30, Math.min(120, yPct));
+        } else {
+          xPct = Math.max(2, Math.min(98, xPct));
+          yPct = Math.max(2, Math.min(98, yPct));
+        }
+        btn.style.left = `${xPct}%`;
+        btn.style.top = `${yPct}%`;
+        devicePosOverride.set(d.id, { x: xPct, y: yPct });
+      });
+      window.addEventListener('mouseup', () => {
+        dragging = false;
+        dragStart = null;
+        // reset didDrag after mouseup so next click can work
+        setTimeout(() => { didDrag = false; }, 0);
+      });
+
       devicesLayer.appendChild(btn);
     });
+  }
+
+  // Helper to get current device position in pixels, considering overrides
+  function getDevicePixelPosition(id) {
+    const dev = devicesData.find(d => d.id === id);
+    if (!dev) return null;
+    const ov = devicePosOverride.get(id);
+    const xPct = ov ? ov.x : dev.x * 100;
+    const yPct = ov ? ov.y : dev.y * 100;
+    return {
+      x: (xPct / 100) * canvas.width,
+      y: (yPct / 100) * canvas.height,
+    };
   }
 
   // Dashboard rendering --------------------------------------------------------
   const dashboardState = [];
   let aeratorMode = 'auto'; // 'on' | 'off' | 'auto'
+  let feederRemainingMins = 60; // logical countdown for feeder
   function renderDashboard(devices) {
     dashboardGrid.innerHTML = '';
     dashboardState.length = 0;
-    devices.forEach((d) => {
+    // Reorder: feeder first, then aerator, others, and pump last
+    const orderPriority = (type) => {
+      if (type === 'feeder') return 0;
+      if (type === 'aerator') return 1;
+      if (type === 'pump') return 99; // bottom
+      return 10; // default middle group
+    };
+    const sorted = [...devices].sort((a, b) => {
+      const pa = orderPriority(a.type);
+      const pb = orderPriority(b.type);
+      if (pa !== pb) return pa - pb;
+      // stable fallback by name
+      return (a.name || '').localeCompare(b.name || '');
+    });
+    sorted.forEach((d) => {
       const card = document.createElement('div');
       card.className = 'card';
 
@@ -246,7 +336,10 @@
       const fill = document.createElement('div');
       fill.className = 'fill';
       bar.appendChild(fill);
-      card.appendChild(bar);
+      // Skip adding bar for feeder and pump (status only)
+      if (d.type !== 'feeder' && d.type !== 'pump') {
+        card.appendChild(bar);
+      }
 
       // Aerator controls (ON/OFF/AUTO) under its bar
       let ctrl = null;
@@ -268,6 +361,30 @@
         btnAuto.addEventListener('click', () => { aeratorMode = 'auto'; updateAeratorStatusUI(btnOn, btnOff, btnAuto); });
         // initial highlight
         updateAeratorStatusUI(btnOn, btnOff, btnAuto);
+      }
+      // Feeder control: Feed Now button to reset timer
+      if (d.type === 'feeder') {
+        const feedCtrl = document.createElement('div');
+        feedCtrl.className = 'controls';
+        const btnFeed = document.createElement('button');
+        btnFeed.type = 'button';
+        btnFeed.textContent = 'Feed Now';
+        btnFeed.className = 'btn btn-feed';
+        feedCtrl.appendChild(btnFeed);
+        card.appendChild(feedCtrl);
+        btnFeed.addEventListener('click', () => {
+          feederRemainingMins = 60; // reset timer
+          // click animation pulse
+          btnFeed.classList.add('pulse');
+          setTimeout(() => btnFeed.classList.remove('pulse'), 400);
+          // Emit feed particles on manual feeding
+          emitFeedParticles(22);
+          // Immediately reflect in dashboard
+          const s = dashboardState.find(x => x.type === 'feeder');
+          if (s) {
+            s.valueEl.textContent = 'Next: ' + feederRemainingMins + 'm';
+          }
+        });
       }
 
       dashboardGrid.appendChild(card);
@@ -326,9 +443,9 @@
           break;
         }
         case 'pump': {
-          numeric = +(randRange(45, 75)).toFixed(0);
-          val = numeric.toFixed(0) + '%';
-          pct = numeric;
+          // Pump runs continuously in normal operation
+          val = 'ON';
+          pct = undefined; // no bar shown for pump
           break;
         }
         case 'aerator': {
@@ -350,9 +467,15 @@
           break;
         }
         case 'feeder': {
-          const mins = Math.floor(randRange(10, 90));
-          val = 'Next: ' + mins + 'm';
-          pct = 60;
+          // Every dashboard tick (4s), reduce remaining by 10 minutes until 0, then reset to 60
+          feederRemainingMins = Math.max(0, feederRemainingMins - 10);
+          if (feederRemainingMins === 0) {
+            // simulate feeding occurred; reset schedule
+            emitFeedParticles(18);
+            feederRemainingMins = 60;
+          }
+          val = 'Next: ' + feederRemainingMins + 'm';
+          pct = undefined; // no bar for feeder
           break;
         }
         default: {
@@ -360,7 +483,9 @@
         }
       }
       state.valueEl.textContent = val;
-      state.fillEl.style.width = Math.max(0, Math.min(100, pct)) + '%';
+      if (typeof pct === 'number' && state.fillEl && state.fillEl.parentElement && state.fillEl.parentElement.classList.contains('bar')) {
+        state.fillEl.style.width = Math.max(0, Math.min(100, pct)) + '%';
+      }
     }
     // initial
     dashboardState.forEach(s => nextForType(s.type, s));
@@ -439,6 +564,63 @@
 
   // Init
   loadDevices();
+    // Feeder particles -----------------------------------------------------------
+    // Emit brown feed particles that fall down and fade out, on schedule and on Feed Now.
+    const feedParticles = [];
+    let feedImg = null;
+    loadFirstAvailable([
+      'assets/web/feed_pixel.png',
+      'assets/web/feed_pixel.webp'
+    ]).then(img => { feedImg = img; });
+
+    function emitFeedParticles(count = 10) {
+      const feeder = findDeviceByType('feeder');
+      if (!feeder) return;
+      const pos = getDevicePixelPosition(feeder.id);
+      if (!pos) return;
+      const sx = pos.x;
+      const sy = pos.y;
+      for (let i = 0; i < count; i++) {
+        feedParticles.push({
+          x: sx + randRange(-6, 6),
+          y: sy + randRange(-4, 4),
+          vx: randRange(-0.3, 0.3),
+          vy: randRange(0.6, 1.2), // downward
+          alpha: 1,
+          size: randRange(6, 10),
+          color: '#8b5a2b', // fallback color if image not loaded
+        });
+      }
+    }
+
+    function updateFeedParticles(dt) {
+      for (let i = feedParticles.length - 1; i >= 0; i--) {
+        const p = feedParticles[i];
+        p.x += p.vx * (dt / 16);
+        p.y += p.vy * (dt / 16);
+        // slower fade so feed particles linger longer
+        p.alpha -= 0.004 * (dt / 16);
+        if (p.y > canvas.height || p.alpha <= 0) {
+          feedParticles.splice(i, 1);
+        }
+      }
+    }
+
+    function drawFeedParticles() {
+      ctx.save();
+      ctx.imageSmoothingEnabled = false;
+      for (const p of feedParticles) {
+        ctx.globalAlpha = Math.max(0, Math.min(1, p.alpha));
+        if (feedImg) {
+          ctx.drawImage(feedImg, 0, 0, feedImg.width, feedImg.height, Math.floor(p.x), Math.floor(p.y), Math.floor(p.size), Math.floor(p.size));
+        } else {
+          ctx.fillStyle = p.color;
+          ctx.fillRect(Math.floor(p.x), Math.floor(p.y), Math.floor(p.size), Math.floor(p.size));
+        }
+      }
+      ctx.globalAlpha = 1;
+      ctx.restore();
+    }
   // Aerator bubbles ------------------------------------------------------------
   // When aerator status is ON in dashboard, emit bubbles from its position.
   let aeratorOn = false;
@@ -457,8 +639,10 @@
     if (!aeratorOn) return;
     const aer = findDeviceByType('aerator');
     if (!aer) return;
-    const cx = aer.x * canvas.width;
-    const cy = aer.y * canvas.height;
+    const pos = getDevicePixelPosition(aer.id);
+    if (!pos) return;
+    const cx = pos.x;
+    const cy = pos.y;
     // emit fewer, larger bubbles with probabilistic spawn
     if (Math.random() < 0.35) {
       const count = 1; // single bubble most frames
